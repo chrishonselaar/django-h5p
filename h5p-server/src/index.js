@@ -59,9 +59,11 @@ app.use((req, res, next) => {
 // Paths for H5P storage (defined early for static file serving)
 const h5pBasePath = H5P_DATA_PATH;
 
-// Serve H5P core and editor static files BEFORE other routes
+// Serve H5P core, editor, and content static files BEFORE other routes
 app.use('/h5p/core', express.static(path.join(h5pBasePath, 'core')));
 app.use('/h5p/editor', express.static(path.join(h5pBasePath, 'editor')));
+app.use('/h5p/content', express.static(path.join(h5pBasePath, 'content')));
+app.use('/h5p/libraries', express.static(path.join(h5pBasePath, 'libraries')));
 
 // Additional H5P paths
 const librariesPath = path.join(h5pBasePath, 'libraries');
