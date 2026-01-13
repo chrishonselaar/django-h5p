@@ -58,8 +58,8 @@ class Activity(models.Model):
         return f"{self.title} ({self.course.title})"
 
     @property
-    def h5p_content_id(self):
-        """Convenience property for templates."""
+    def h5p_server_id(self):
+        """Get the H5P server content ID for templates."""
         return self.h5p_content.h5p_content_id if self.h5p_content else None
 
     def get_grades(self):

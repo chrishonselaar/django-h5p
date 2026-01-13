@@ -22,15 +22,15 @@
             <div>
                 <div class="activity-title">{{ activity.title }}</div>
                 <div class="activity-meta">
-                    {% if activity.h5p_content_id %}
-                    Content ID: {{ activity.h5p_content_id }}
+                    {% if activity.h5p_server_id %}
+                    Content ID: {{ activity.h5p_server_id }}
                     {% else %}
                     <span style="color: #e67e22;">No content linked yet</span>
                     {% endif %}
                 </div>
             </div>
             <div>
-                {% if activity.h5p_content_id %}
+                {% if activity.h5p_server_id %}
                 <a href="{% url 'sample_lms:activity_launch' activity.id %}" class="btn">Play</a>
                 <a href="{% url 'sample_lms:activity_edit' activity.id %}" class="btn btn-secondary">Edit</a>
                 {% else %}
