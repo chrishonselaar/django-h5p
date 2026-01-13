@@ -4,7 +4,7 @@
 
 {% block content %}
 <div class="breadcrumb">
-    <a href="{% url 'lti_consumer:course_list' %}">Courses</a> &raquo; Create
+    <a href="{% url 'sample_lms:course_list' %}">Courses</a> &raquo; Create
 </div>
 
 <div class="card">
@@ -20,7 +20,7 @@
         <textarea id="description" name="description" placeholder="Brief description of the course..."></textarea>
 
         <button type="submit" class="btn btn-success">Create Course</button>
-        <a href="{% url 'lti_consumer:course_list' %}" class="btn btn-secondary">Cancel</a>
+        <a href="{% url 'sample_lms:course_list' %}" class="btn btn-secondary">Cancel</a>
     </form>
 </div>
 {% endblock %}

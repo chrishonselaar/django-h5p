@@ -4,9 +4,9 @@
 
 {% block content %}
 <div class="breadcrumb">
-    <a href="{% url 'lti_consumer:course_list' %}">Courses</a> &raquo;
-    <a href="{% url 'lti_consumer:course_detail' activity.course.id %}">{{ activity.course.title }}</a> &raquo;
-    <a href="{% url 'lti_consumer:activity_view' activity.id %}">{{ activity.title }}</a> &raquo;
+    <a href="{% url 'sample_lms:course_list' %}">Courses</a> &raquo;
+    <a href="{% url 'sample_lms:course_detail' activity.course.id %}">{{ activity.course.title }}</a> &raquo;
+    <a href="{% url 'sample_lms:activity_view' activity.id %}">{{ activity.title }}</a> &raquo;
     Edit
 </div>
 
@@ -23,14 +23,14 @@
     <div id="status" style="margin-top: 20px; padding: 15px; display: none;"></div>
 
     <div style="margin-top: 20px;">
-        <a href="{% url 'lti_consumer:activity_view' activity.id %}" class="btn btn-secondary">Cancel</a>
+        <a href="{% url 'sample_lms:activity_view' activity.id %}" class="btn btn-secondary">Cancel</a>
     </div>
 </div>
 
 <script>
 (function() {
     const editorUrl = "{{ h5p_editor_url|safe }}";
-    const activityViewUrl = "{% url 'lti_consumer:activity_view' activity.id %}";
+    const activityViewUrl = "{% url 'sample_lms:activity_view' activity.id %}";
     let editorWindow = null;
 
     document.getElementById('open-editor-btn').addEventListener('click', function() {

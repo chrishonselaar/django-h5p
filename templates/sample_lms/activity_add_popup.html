@@ -4,8 +4,8 @@
 
 {% block content %}
 <div class="breadcrumb">
-    <a href="{% url 'lti_consumer:course_list' %}">Courses</a> &raquo;
-    <a href="{% url 'lti_consumer:course_detail' course.id %}">{{ course.title }}</a> &raquo;
+    <a href="{% url 'sample_lms:course_list' %}">Courses</a> &raquo;
+    <a href="{% url 'sample_lms:course_detail' course.id %}">{{ course.title }}</a> &raquo;
     Add Activity
 </div>
 
@@ -22,14 +22,14 @@
     <div id="status" style="margin-top: 20px; padding: 15px; display: none;"></div>
 
     <div style="margin-top: 20px;">
-        <a href="{% url 'lti_consumer:course_detail' course.id %}" class="btn btn-secondary">Cancel</a>
+        <a href="{% url 'sample_lms:course_detail' course.id %}" class="btn btn-secondary">Cancel</a>
     </div>
 </div>
 
 <script>
 (function() {
     const editorUrl = "{{ h5p_editor_url|safe }}";
-    const courseDetailUrl = "{% url 'lti_consumer:course_detail' course.id %}";
+    const courseDetailUrl = "{% url 'sample_lms:course_detail' course.id %}";
     let editorWindow = null;
 
     document.getElementById('open-editor-btn').addEventListener('click', function() {

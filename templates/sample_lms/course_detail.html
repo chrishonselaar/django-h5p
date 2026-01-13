@@ -4,7 +4,7 @@
 
 {% block content %}
 <div class="breadcrumb">
-    <a href="{% url 'lti_consumer:course_list' %}">Courses</a> &raquo; {{ course.title }}
+    <a href="{% url 'sample_lms:course_list' %}">Courses</a> &raquo; {{ course.title }}
 </div>
 
 <div class="card">
@@ -31,12 +31,12 @@
             </div>
             <div>
                 {% if activity.h5p_content_id %}
-                <a href="{% url 'lti_consumer:activity_launch' activity.id %}" class="btn">Play</a>
-                <a href="{% url 'lti_consumer:activity_edit' activity.id %}" class="btn btn-secondary">Edit</a>
+                <a href="{% url 'sample_lms:activity_launch' activity.id %}" class="btn">Play</a>
+                <a href="{% url 'sample_lms:activity_edit' activity.id %}" class="btn btn-secondary">Edit</a>
                 {% else %}
-                <a href="{% url 'lti_consumer:activity_edit' activity.id %}" class="btn btn-success">Create Content</a>
+                <a href="{% url 'sample_lms:activity_edit' activity.id %}" class="btn btn-success">Create Content</a>
                 {% endif %}
-                <a href="{% url 'lti_consumer:activity_view' activity.id %}" class="btn btn-secondary">Grades</a>
+                <a href="{% url 'sample_lms:activity_view' activity.id %}" class="btn btn-secondary">Grades</a>
             </div>
         </li>
         {% endfor %}
@@ -48,7 +48,7 @@
     {% endif %}
 
     <div style="margin-top: 20px;">
-        <a href="{% url 'lti_consumer:activity_add' course.id %}" class="btn btn-success">+ Add H5P Activity</a>
+        <a href="{% url 'sample_lms:activity_add' course.id %}" class="btn btn-success">+ Add H5P Activity</a>
     </div>
 </div>
 {% endblock %}

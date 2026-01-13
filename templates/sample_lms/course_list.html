@@ -14,7 +14,7 @@
                 <div class="activity-title">{{ course.title }}</div>
                 <div class="activity-meta">{{ course.activities.count }} activities</div>
             </div>
-            <a href="{% url 'lti_consumer:course_detail' course.id %}" class="btn">View</a>
+            <a href="{% url 'sample_lms:course_detail' course.id %}" class="btn">View</a>
         </li>
         {% endfor %}
     </ul>
@@ -25,7 +25,7 @@
     {% endif %}
 
     <div style="margin-top: 20px;">
-        <a href="{% url 'lti_consumer:course_create' %}" class="btn btn-success">+ Create Course</a>
+        <a href="{% url 'sample_lms:course_create' %}" class="btn btn-success">+ Create Course</a>
     </div>
 </div>
 {% endblock %}
