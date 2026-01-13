@@ -38,6 +38,15 @@
         // Navigate parent window and close popup
         const redirectUrl = "{{ redirect_url|default:''|escapejs }}";
 
+        // Use localStorage to signal parent window to refresh
+        // (works even if opener reference is lost due to cross-origin navigation)
+        try {
+            localStorage.setItem('h5p_content_saved', JSON.stringify({
+                timestamp: Date.now(),
+                redirectUrl: redirectUrl
+            }));
+        } catch (e) {}
+
         setTimeout(function() {
             // Try to navigate the parent/opener window
             if (window.opener && !window.opener.closed) {
@@ -48,7 +57,7 @@
                         window.opener.location.reload();
                     }
                 } catch (e) {
-                    // Cross-origin - parent will detect closed popup and redirect
+                    console.log('Could not navigate opener:', e);
                 }
             }
             window.close();
