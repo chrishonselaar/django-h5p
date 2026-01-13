@@ -35,11 +35,9 @@
         <p>This window will close automatically...</p>
     </div>
     <script>
-        // Navigate parent window and close popup
         const redirectUrl = "{{ redirect_url|default:''|escapejs }}";
 
-        // Use localStorage to signal parent window to refresh
-        // (works even if opener reference is lost due to cross-origin navigation)
+        // Signal parent via localStorage
         try {
             localStorage.setItem('h5p_content_saved', JSON.stringify({
                 timestamp: Date.now(),
@@ -48,20 +46,35 @@
         } catch (e) {}
 
         setTimeout(function() {
-            // Try to navigate the parent/opener window
+            let navigatedOpener = false;
+
+            // Try to navigate the opener
             if (window.opener && !window.opener.closed) {
                 try {
-                    if (redirectUrl) {
-                        window.opener.location.href = redirectUrl;
-                    } else {
-                        window.opener.location.reload();
-                    }
+                    window.opener.location.href = redirectUrl || '/';
+                    navigatedOpener = true;
                 } catch (e) {
                     console.log('Could not navigate opener:', e);
                 }
             }
-            window.close();
-        }, 800);
+
+            // Try to close the popup
+            try {
+                window.close();
+            } catch (e) {}
+
+            // If window didn't close (browser blocked it), navigate this window instead
+            setTimeout(function() {
+                // If we're still here, the popup didn't close
+                if (!window.closed && redirectUrl) {
+                    document.body.innerHTML = '<div style="text-align:center;padding:40px;font-family:sans-serif;">' +
+                        '<h2>Content saved!</h2>' +
+                        '<p>Please close this popup window and refresh the parent page.</p>' +
+                        '<p><a href="' + redirectUrl + '" target="_blank">Or click here to open in new tab</a></p>' +
+                        '</div>';
+                }
+            }, 500);
+        }, 500);
     </script>
 </body>
 </html>
