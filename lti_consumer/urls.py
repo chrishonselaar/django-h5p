@@ -14,6 +14,7 @@ urlpatterns = [
     # Activity management
     path('course/<uuid:course_id>/add-activity/', views.activity_add, name='activity_add'),
     path('course/<uuid:course_id>/activity-created/', views.activity_created, name='activity_created'),
+    path('course/<uuid:course_id>/activity-created-popup/', views.activity_created_popup, name='activity_created_popup'),
     path('course/<uuid:course_id>/select-content/', views.content_select, name='content_select'),
 
     # Activity views
@@ -21,6 +22,7 @@ urlpatterns = [
     path('activity/<uuid:activity_id>/launch/', views.activity_launch, name='activity_launch'),
     path('activity/<uuid:activity_id>/edit/', views.activity_edit, name='activity_edit'),
     path('activity/<uuid:activity_id>/content-updated/', views.activity_content_updated, name='activity_content_updated'),
+    path('activity/<uuid:activity_id>/content-updated-popup/', views.activity_content_updated_popup, name='activity_content_updated_popup'),
     path('activity/<uuid:activity_id>/delete/', views.activity_delete, name='activity_delete'),
 
     # H5P webhooks and API

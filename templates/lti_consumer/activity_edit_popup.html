@@ -1,0 +1,73 @@
+{% extends 'base.html' %}
+
+{% block title %}Edit H5P Activity - {{ activity.title }}{% endblock %}
+
+{% block content %}
+<div class="breadcrumb">
+    <a href="{% url 'lti_consumer:course_list' %}">Courses</a> &raquo;
+    <a href="{% url 'lti_consumer:course_detail' activity.course.id %}">{{ activity.course.title }}</a> &raquo;
+    <a href="{% url 'lti_consumer:activity_view' activity.id %}">{{ activity.title }}</a> &raquo;
+    Edit
+</div>
+
+<div class="card">
+    <h2>Edit H5P Content</h2>
+    <p style="color: #666; margin-bottom: 15px;">
+        Click the button below to open the H5P editor. When you save your changes, this page will update automatically.
+    </p>
+
+    <button id="open-editor-btn" class="btn btn-primary" style="font-size: 18px; padding: 15px 30px;">
+        Open H5P Editor
+    </button>
+
+    <div id="status" style="margin-top: 20px; padding: 15px; display: none;"></div>
+
+    <div style="margin-top: 20px;">
+        <a href="{% url 'lti_consumer:activity_view' activity.id %}" class="btn btn-secondary">Cancel</a>
+    </div>
+</div>
+
+<script>
+(function() {
+    const editorUrl = "{{ h5p_editor_url|safe }}";
+    const activityViewUrl = "{% url 'lti_consumer:activity_view' activity.id %}";
+    let editorWindow = null;
+
+    document.getElementById('open-editor-btn').addEventListener('click', function() {
+        // Open popup window
+        const width = 1200;
+        const height = 800;
+        const left = (screen.width - width) / 2;
+        const top = (screen.height - height) / 2;
+
+        editorWindow = window.open(
+            editorUrl,
+            'h5p-editor',
+            `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes`
+        );
+
+        if (editorWindow) {
+            document.getElementById('status').style.display = 'block';
+            document.getElementById('status').innerHTML =
+                '<strong>Editor opened in popup.</strong><br>' +
+                'Make your changes and click "Save Content" when done.<br>' +
+                '<small style="color: #666;">This page will redirect automatically after saving.</small>';
+            document.getElementById('status').style.background = '#e7f3ff';
+            document.getElementById('status').style.border = '1px solid #b3d7ff';
+            document.getElementById('status').style.borderRadius = '4px';
+
+            // Check if popup was closed or redirected back
+            const checkPopup = setInterval(function() {
+                if (editorWindow.closed) {
+                    clearInterval(checkPopup);
+                    // Popup closed - refresh to activity view
+                    window.location.href = activityViewUrl;
+                }
+            }, 500);
+        } else {
+            alert('Popup blocked! Please allow popups for this site.');
+        }
+    });
+})();
+</script>
+{% endblock %}

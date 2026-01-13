@@ -3,6 +3,7 @@
 import json
 import uuid
 from decimal import Decimal
+from urllib.parse import urlencode
 
 from django.conf import settings
 from django.http import HttpResponse, JsonResponse
@@ -54,8 +55,8 @@ def course_detail(request, course_id):
 def activity_add(request, course_id):
     """Add a new H5P activity to a course.
 
-    GET: Shows the H5P editor in an iframe for content creation
-    POST: Receives the content ID after creation and saves the activity
+    Opens H5P editor in a popup window to avoid cross-origin iframe issues
+    while keeping the user on the Django course page.
     """
     course = get_object_or_404(Course, id=course_id)
 
@@ -71,20 +72,21 @@ def activity_add(request, course_id):
             )
             return redirect('lti_consumer:course_detail', course_id=course.id)
 
-    # Build return URL for the H5P editor
-    return_url = request.build_absolute_uri(f'/course/{course.id}/activity-created/')
+    # Build return URL - use popup-close endpoint
+    return_url = request.build_absolute_uri(f'/course/{course.id}/activity-created-popup/')
+    user_id = get_user_id(request)
+    params = urlencode({'userId': user_id, 'returnUrl': return_url})
+    h5p_editor_url = f"{settings.H5P_SERVER_URL}/new?{params}"
 
-    return render(request, 'lti_consumer/activity_add.html', {
+    return render(request, 'lti_consumer/activity_add_popup.html', {
         'course': course,
-        'h5p_server_url': settings.H5P_SERVER_URL,
-        'return_url': return_url,
-        'user_id': get_user_id(request),
+        'h5p_editor_url': h5p_editor_url,
     })
 
 
 @require_http_methods(["GET"])
 def activity_created(request, course_id):
-    """Callback after H5P content is created in the editor."""
+    """Callback after H5P content is created in the editor (non-popup flow)."""
     course = get_object_or_404(Course, id=course_id)
 
     content_id = request.GET.get('contentId', '').strip()
@@ -98,6 +100,27 @@ def activity_created(request, course_id):
         )
 
     return redirect('lti_consumer:course_detail', course_id=course.id)
+
+
+@require_http_methods(["GET"])
+def activity_created_popup(request, course_id):
+    """Callback after H5P content is created - closes the popup window."""
+    course = get_object_or_404(Course, id=course_id)
+
+    content_id = request.GET.get('contentId', '').strip()
+    title = request.GET.get('title', '').strip() or 'H5P Activity'
+
+    if content_id:
+        H5PActivity.objects.create(
+            course=course,
+            title=title,
+            h5p_content_id=content_id,
+        )
+
+    # Return a page that closes the popup
+    return render(request, 'lti_consumer/popup_close.html', {
+        'message': f'Activity "{title}" created successfully!',
+    })
 
 
 def activity_view(request, activity_id):
@@ -127,27 +150,31 @@ def activity_launch(request, activity_id):
 
 
 def activity_edit(request, activity_id):
-    """Edit an existing H5P activity's content."""
+    """Edit an existing H5P activity's content.
+
+    Opens H5P editor in a popup window to avoid cross-origin iframe issues.
+    """
     activity = get_object_or_404(H5PActivity, id=activity_id)
 
     if not activity.h5p_content_id:
         return redirect('lti_consumer:activity_add', course_id=activity.course.id)
 
     return_url = request.build_absolute_uri(
-        f'/activity/{activity.id}/content-updated/'
+        f'/activity/{activity.id}/content-updated-popup/'
     )
+    user_id = get_user_id(request)
+    params = urlencode({'userId': user_id, 'returnUrl': return_url})
+    h5p_editor_url = f"{settings.H5P_SERVER_URL}/edit/{activity.h5p_content_id}?{params}"
 
-    return render(request, 'lti_consumer/activity_edit.html', {
+    return render(request, 'lti_consumer/activity_edit_popup.html', {
         'activity': activity,
-        'h5p_server_url': settings.H5P_SERVER_URL,
-        'return_url': return_url,
-        'user_id': get_user_id(request),
+        'h5p_editor_url': h5p_editor_url,
     })
 
 
 @require_http_methods(["GET"])
 def activity_content_updated(request, activity_id):
-    """Callback after H5P content is updated."""
+    """Callback after H5P content is updated (non-popup flow)."""
     activity = get_object_or_404(H5PActivity, id=activity_id)
 
     title = request.GET.get('title', '').strip()
@@ -156,6 +183,21 @@ def activity_content_updated(request, activity_id):
         activity.save()
 
     return redirect('lti_consumer:activity_view', activity_id=activity.id)
+
+
+@require_http_methods(["GET"])
+def activity_content_updated_popup(request, activity_id):
+    """Callback after H5P content is updated - closes the popup window."""
+    activity = get_object_or_404(H5PActivity, id=activity_id)
+
+    title = request.GET.get('title', '').strip()
+    if title:
+        activity.title = title
+        activity.save()
+
+    return render(request, 'lti_consumer/popup_close.html', {
+        'message': f'Activity "{activity.title}" updated successfully!',
+    })
 
 
 @require_http_methods(["POST"])
@@ -189,31 +231,44 @@ def content_select(request, course_id):
 # H5P Results Webhook (receives scores from H5P server)
 # =============================================================================
 
+def _add_cors_headers(response):
+    """Add CORS headers for H5P server requests."""
+    response['Access-Control-Allow-Origin'] = '*'
+    response['Access-Control-Allow-Methods'] = 'POST, OPTIONS'
+    response['Access-Control-Allow-Headers'] = 'Content-Type'
+    return response
+
+
 @csrf_exempt
-@require_http_methods(["POST"])
+@require_http_methods(["POST", "OPTIONS"])
 def h5p_results(request):
     """Receive results/scores from H5P content via xAPI webhook.
 
     The H5P server sends xAPI statements when users complete activities.
     """
+    # Handle CORS preflight
+    if request.method == 'OPTIONS':
+        response = HttpResponse()
+        return _add_cors_headers(response)
+
     try:
         data = json.loads(request.body.decode('utf-8'))
     except json.JSONDecodeError:
-        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+        return _add_cors_headers(JsonResponse({'error': 'Invalid JSON'}, status=400))
 
     content_id = data.get('contentId')
     user_id = data.get('userId', 'anonymous')
     statement = data.get('statement', {})
 
     if not content_id:
-        return JsonResponse({'error': 'Missing contentId'}, status=400)
+        return _add_cors_headers(JsonResponse({'error': 'Missing contentId'}, status=400))
 
     # Find the activity by H5P content ID
     try:
         activity = H5PActivity.objects.get(h5p_content_id=content_id)
     except H5PActivity.DoesNotExist:
         # Activity not tracked in Django - that's OK
-        return JsonResponse({'status': 'ignored', 'reason': 'activity_not_found'})
+        return _add_cors_headers(JsonResponse({'status': 'ignored', 'reason': 'activity_not_found'}))
 
     # Extract score from xAPI statement
     result = statement.get('result', {})
@@ -249,14 +304,14 @@ def h5p_results(request):
             }
         )
 
-        return JsonResponse({
+        return _add_cors_headers(JsonResponse({
             'status': 'saved',
             'activity_id': str(activity.id),
             'score': float(score),
             'verb': verb,
-        })
+        }))
 
-    return JsonResponse({'status': 'ignored', 'reason': 'no_score'})
+    return _add_cors_headers(JsonResponse({'status': 'ignored', 'reason': 'no_score'}))
 
 
 # =============================================================================

@@ -137,6 +137,17 @@ async function initH5P() {
     // H5P.fs signature:
     // (config, librariesPath, temporaryStoragePath, contentPath,
     //  contentUserDataStorage, contentStorage, translationCallback, urlGenerator, options)
+    const urlGenerator = new H5P.UrlGenerator(config, {
+        queryParamGenerator: (user) => ({ userId: user.id }),
+        protectAjax: false,
+        protectContentUserData: false,
+        protectSetFinished: false
+    });
+
+    // Create content and library storage
+    const contentStorage = new H5P.fsImplementations.FileContentStorage(contentPath);
+    const libraryStorage = new H5P.fsImplementations.FileLibraryStorage(librariesPath);
+
     h5pEditor = H5P.fs(
         config,              // 1. config
         librariesPath,       // 2. librariesPath
@@ -145,16 +156,19 @@ async function initH5P() {
         undefined,           // 5. contentUserDataStorage
         undefined,           // 6. contentStorage (use default)
         translationCallback, // 7. translationCallback
-        new H5P.UrlGenerator(config, {
-            queryParamGenerator: (user) => ({ userId: user.id }),
-            protectAjax: false,
-            protectContentUserData: false,
-            protectSetFinished: false
-        }),                  // 8. urlGenerator
+        urlGenerator,        // 8. urlGenerator
         undefined            // 9. options
     );
 
-    h5pPlayer = h5pEditor;
+    // Create a proper H5PPlayer instance for playing content
+    h5pPlayer = new H5P.H5PPlayer(
+        libraryStorage,
+        contentStorage,
+        config,
+        undefined,           // integrationObjectDefaults
+        urlGenerator,
+        translationCallback
+    );
 
     console.log('H5P initialized successfully');
 }
@@ -289,7 +303,8 @@ app.get('/play/:contentId', async (req, res) => {
         const user = createUser(req);
         const contentId = req.params.contentId;
 
-        const playerModel = await h5pPlayer.render(
+        // h5pPlayer.render() returns complete HTML with the default renderer
+        let playerHtml = await h5pPlayer.render(
             contentId,
             user,
             'en',
@@ -302,23 +317,28 @@ app.get('/play/:contentId', async (req, res) => {
             }
         );
 
-        // Render HTML page with player
-        const html = `
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>${playerModel.contentId}</title>
-    ${playerModel.styles.map(s => `<link rel="stylesheet" href="${s}">`).join('\n    ')}
-    ${playerModel.scripts.map(s => `<script src="${s}"></script>`).join('\n    ')}
-</head>
-<body>
-    <div class="h5p-content" data-content-id="${playerModel.contentId}"></div>
+        // Inject H5P init and xAPI tracking script before </body>
+        const xapiScript = `
     <script>
-        ${playerModel.integration}
+        // Debug H5P initialization
+        console.log('H5P script loaded, checking H5P object...');
+        console.log('H5P:', typeof H5P);
+        console.log('H5PIntegration:', typeof H5PIntegration);
+        console.log('jQuery:', typeof jQuery);
 
-        // Track xAPI events and send to parent/Django
+        // H5P auto-initializes on jQuery ready, but let's make sure
+        if (typeof jQuery !== 'undefined') {
+            jQuery(document).ready(function() {
+                console.log('jQuery ready, H5P.init exists:', typeof H5P !== 'undefined' && typeof H5P.init);
+                console.log('H5P contents:', H5PIntegration.contents);
+                if (typeof H5P !== 'undefined' && H5P.init) {
+                    console.log('Calling H5P.init...');
+                    H5P.init(document.body);
+                }
+            });
+        }
+
+        // Track xAPI events and send to Django
         H5P.externalDispatcher.on('xAPI', function(event) {
             const statement = event.data.statement;
 
@@ -350,11 +370,12 @@ app.get('/play/:contentId', async (req, res) => {
                 }
             }
         });
-    </script>
-</body>
-</html>`;
+    </script>`;
 
-        res.send(html);
+        // Inject xAPI script before </body>
+        playerHtml = playerHtml.replace('</body>', xapiScript + '\n</body>');
+
+        res.send(playerHtml);
     } catch (error) {
         console.error('Error rendering player:', error);
         res.status(500).send(`Error: ${error.message}`);
@@ -365,11 +386,10 @@ app.get('/play/:contentId', async (req, res) => {
 // Editor Endpoints - For creating/editing H5P content
 // ============================================================================
 
-// Edit existing content
+// Edit existing content (GET - show editor)
 app.get('/edit/:contentId', async (req, res) => {
     try {
         const user = createUser(req);
-        // render() returns complete HTML string
         const editorHtml = await h5pEditor.render(
             req.params.contentId,
             'en',
@@ -383,21 +403,114 @@ app.get('/edit/:contentId', async (req, res) => {
     }
 });
 
-// Create new content (optionally specify library)
+// Edit existing content (POST - save from built-in form or our JSON handler)
+app.post('/edit/:contentId', fileUpload({ useTempFiles: true, tempFileDir: tempPath }), async (req, res) => {
+    try {
+        const user = createUser(req);
+        const contentId = req.params.contentId;
+        // Handle both JSON (from our form handler) and multipart form data
+        const library = req.body?.library;
+        const parameters = req.body?.params || req.body?.parameters;
+        const returnUrl = req.query.returnUrl;
+
+        if (!library || !parameters) {
+            console.log('Missing data. Body:', req.body);
+            return res.status(400).send('Missing library or parameters');
+        }
+
+        // The form sends params as: {"params": {...actual content...}, "metadata": {...}}
+        const fullParams = typeof parameters === 'string' ? JSON.parse(parameters) : parameters;
+        // Extract the actual content parameters and metadata separately
+        const contentParams = fullParams.params || fullParams;
+        const metadata = fullParams.metadata || { title: 'Untitled' };
+
+        await h5pEditor.saveOrUpdateContentReturnMetaData(
+            contentId,
+            contentParams,  // Just the content parameters, not the wrapper
+            metadata,
+            library,
+            user
+        );
+
+        // Build redirect URL
+        let redirectUrl = `/edit/${contentId}`;
+        if (returnUrl) {
+            const url = new URL(returnUrl);
+            url.searchParams.set('contentId', contentId);
+            url.searchParams.set('title', metadata.title);
+            redirectUrl = url.toString();
+        }
+
+        // Always return JSON for the client-side interception to catch
+        console.log('Content updated successfully, returning JSON with redirectUrl:', redirectUrl);
+        return res.json({ success: true, contentId, redirectUrl });
+    } catch (error) {
+        console.error('Error saving content:', error);
+        res.status(500).send(`Error: ${error.message}`);
+    }
+});
+
+// Create new content (GET - show editor)
 app.get('/new', async (req, res) => {
     try {
         const user = createUser(req);
-        // render() returns complete HTML string
         const editorHtml = await h5pEditor.render(
             undefined,  // No content ID = new content
             'en',
             user
         );
 
-        // Wrap the HTML with our save/cancel UI
         res.send(wrapEditorHtml(editorHtml, null, req.query.returnUrl));
     } catch (error) {
         console.error('Error rendering editor:', error);
+        res.status(500).send(`Error: ${error.message}`);
+    }
+});
+
+// Create new content (POST - save from built-in form)
+// Use fileUpload middleware since form uses multipart/form-data
+app.post('/new', fileUpload({ useTempFiles: true, tempFileDir: tempPath }), async (req, res) => {
+    try {
+        const user = createUser(req);
+        // Form fields come from req.body when using express-fileupload
+        const library = req.body?.library;
+        const parameters = req.body?.params || req.body?.parameters;
+        const returnUrl = req.query.returnUrl;
+
+        if (!library || !parameters) {
+            console.log('Missing data. Body:', req.body);
+            return res.status(400).send('Missing library or parameters');
+        }
+
+        // The form sends params as: {"params": {...actual content...}, "metadata": {...}}
+        const fullParams = typeof parameters === 'string' ? JSON.parse(parameters) : parameters;
+        // Extract the actual content parameters and metadata separately
+        const contentParams = fullParams.params || fullParams;
+        const metadata = fullParams.metadata || { title: 'Untitled' };
+
+        const savedId = await h5pEditor.saveOrUpdateContentReturnMetaData(
+            undefined,
+            contentParams,  // Just the content parameters, not the wrapper
+            metadata,
+            library,
+            user
+        );
+
+        // Build redirect URL
+        let redirectUrl = `/edit/${savedId.id}`;
+        if (returnUrl) {
+            const url = new URL(returnUrl);
+            url.searchParams.set('contentId', savedId.id);
+            url.searchParams.set('title', metadata.title);
+            redirectUrl = url.toString();
+        }
+
+        // Always return JSON for the client-side interception to catch
+        console.log('Content saved successfully, returning JSON with redirectUrl:', redirectUrl);
+        return res.json({ success: true, contentId: savedId.id, redirectUrl });
+
+    } catch (error) {
+        console.error('Error saving new content:', error);
         res.status(500).send(`Error: ${error.message}`);
     }
 });
@@ -427,101 +540,103 @@ app.post('/api/save', async (req, res) => {
     }
 });
 
-// Helper function to wrap editor HTML with save/cancel buttons
+// Helper function to wrap editor HTML with cancel button and styling
 function wrapEditorHtml(editorHtml, contentId, returnUrl) {
-    // The H5PEditor.render() returns complete HTML
-    // We inject our custom styles and save/cancel script before </body>
+    // Add styling and a cancel button (the built-in Create/Save button handles saving)
 
     const customStyles = `
     <style>
-        .h5p-save-wrapper { padding: 20px; max-width: 1200px; margin: 0 auto; }
-        .h5p-editor-actions { margin-top: 20px; display: flex; gap: 10px; }
-        .h5p-editor-actions button {
+        body { padding: 20px; }
+        .h5p-editor-cancel { margin-top: 20px; }
+        .btn-cancel {
             padding: 10px 20px; font-size: 16px; cursor: pointer;
             border: none; border-radius: 4px;
+            background: #ccc; color: #333;
         }
-        .btn-save { background: #21759b; color: white; }
-        .btn-save:hover { background: #1e6a8d; }
-        .btn-cancel { background: #ccc; }
         .btn-cancel:hover { background: #bbb; }
-        .saving { opacity: 0.5; pointer-events: none; }
+        /* Style the built-in save button */
+        #save-h5p {
+            padding: 10px 20px !important;
+            font-size: 16px !important;
+            background: #21759b !important;
+            color: white !important;
+            border: none !important;
+            border-radius: 4px !important;
+            cursor: pointer !important;
+        }
+        #save-h5p:hover { background: #1e6a8d !important; }
     </style>`;
 
-    const saveScript = `
-    <div class="h5p-editor-actions">
-        <button class="btn-save" onclick="saveH5PContent()">Save Content</button>
+    const cancelScript = `
+    <div class="h5p-editor-cancel">
         <button class="btn-cancel" onclick="cancelH5PEdit()">Cancel</button>
     </div>
     <script>
-        const h5pContentId = ${contentId ? `'${contentId}'` : 'null'};
         const h5pReturnUrl = ${returnUrl ? `'${returnUrl}'` : 'null'};
+        const h5pContentId = ${contentId ? `'${contentId}'` : 'null'};
 
-        async function saveH5PContent() {
-            const saveBtn = document.querySelector('.btn-save');
-            saveBtn.classList.add('saving');
-            saveBtn.textContent = 'Saving...';
-
-            try {
-                // Check if H5PEditor exists
-                if (typeof H5PEditor === 'undefined') {
-                    throw new Error('H5PEditor not found');
-                }
-
-                // Check if instances array exists and has content
-                if (!H5PEditor.instances || H5PEditor.instances.length === 0) {
-                    throw new Error('Editor not initialized - no instances found');
-                }
-
-                const editor = H5PEditor.instances[0];
-                if (!editor) throw new Error('Editor instance is null');
-
-                const params = editor.getParams();
-                const library = editor.getLibrary();
-                const metadata = { title: params.metadata?.title || 'Untitled', ...params.metadata };
-
-                const response = await fetch('/api/save', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        contentId: h5pContentId, library, params, metadata,
-                        userId: new URLSearchParams(window.location.search).get('userId') || 'anonymous'
-                    })
-                });
-
-                const result = await response.json();
-                if (result.success) {
-                    if (window.parent !== window) {
-                        window.parent.postMessage({ type: 'h5p-saved', contentId: result.contentId, metadata: result.metadata }, '*');
-                    }
-                    if (h5pReturnUrl) {
-                        const url = new URL(h5pReturnUrl);
-                        url.searchParams.set('contentId', result.contentId);
-                        url.searchParams.set('title', metadata.title);
-                        window.location.href = url.toString();
-                    } else {
-                        alert('Content saved!');
-                        if (!h5pContentId) window.location.href = '/edit/' + result.contentId + window.location.search;
-                    }
-                } else throw new Error(result.error || 'Save failed');
-            } catch (error) {
-                alert('Error saving: ' + error.message);
-            } finally {
-                saveBtn.classList.remove('saving');
-                saveBtn.textContent = 'Save Content';
+        function cancelH5PEdit() {
+            if (h5pReturnUrl) {
+                window.location.href = h5pReturnUrl;
+            } else {
+                window.history.back();
             }
         }
 
-        function cancelH5PEdit() {
-            if (h5pReturnUrl) window.location.href = h5pReturnUrl;
-            else if (window.parent !== window) window.parent.postMessage({ type: 'h5p-cancel' }, '*');
-            else window.history.back();
-        }
+        // Intercept XHR and fetch responses to detect successful saves and redirect
+        (function() {
+            // Intercept XMLHttpRequest
+            const originalXHROpen = XMLHttpRequest.prototype.open;
+            const originalXHRSend = XMLHttpRequest.prototype.send;
+
+            XMLHttpRequest.prototype.open = function(method, url) {
+                this._url = url;
+                this._method = method;
+                return originalXHROpen.apply(this, arguments);
+            };
+
+            XMLHttpRequest.prototype.send = function() {
+                const xhr = this;
+                xhr.addEventListener('load', function() {
+                    console.log('XHR completed:', xhr._method, xhr._url, 'Status:', xhr.status);
+                    try {
+                        const response = JSON.parse(xhr.responseText);
+                        console.log('XHR response:', response);
+                        if (response.success && response.redirectUrl) {
+                            console.log('Save successful, redirecting to:', response.redirectUrl);
+                            window.location.href = response.redirectUrl;
+                        }
+                    } catch (e) {
+                        // Not JSON, ignore
+                    }
+                });
+                return originalXHRSend.apply(this, arguments);
+            };
+
+            // Also intercept fetch in case H5P uses that
+            const originalFetch = window.fetch;
+            window.fetch = function(url, options) {
+                console.log('Fetch:', options?.method || 'GET', url);
+                return originalFetch.apply(this, arguments).then(response => {
+                    // Clone response so we can read it
+                    const clonedResponse = response.clone();
+                    clonedResponse.json().then(data => {
+                        console.log('Fetch response:', data);
+                        if (data.success && data.redirectUrl) {
+                            console.log('Save successful via fetch, redirecting to:', data.redirectUrl);
+                            window.location.href = data.redirectUrl;
+                        }
+                    }).catch(() => {});
+                    return response;
+                });
+            };
+        })();
     </script>`;
 
-    // Inject styles after <head> and buttons/script before </body>
+    // Inject styles after <head> and cancel button/script before </body>
     let html = editorHtml;
     html = html.replace('</head>', customStyles + '</head>');
-    html = html.replace('</body>', saveScript + '</body>');
+    html = html.replace('</body>', cancelScript + '</body>');
 
     // Fix cross-origin frame access errors by wrapping parent access in try-catch
     // The H5P library tries to access parent properties which causes cross-origin errors
