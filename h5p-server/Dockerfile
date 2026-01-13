@@ -1,19 +1,45 @@
-FROM node:20-slim
+# H5P Server Dockerfile
+# License: GPL-3.0-or-later (due to @lumieducation/h5p-server dependency)
+#
+# This container provides an H5P content authoring and playback server
+# that can be integrated with any LMS via HTTP API.
 
+FROM node:20-alpine
+
+LABEL maintainer="Chris Honselaar"
+LABEL description="H5P Content Server for LMS Integration"
+LABEL license="GPL-3.0-or-later"
+
+# Create app directory
 WORKDIR /app
 
-# Copy package files
-COPY package.json ./
+# Install dependencies first (better layer caching)
+COPY package*.json ./
+RUN npm ci --only=production
 
-# Install dependencies
-RUN npm install
-
-# Copy source code
+# Copy application code
 COPY src/ ./src/
 
-# Create H5P directories
-RUN mkdir -p h5p/libraries h5p/content h5p/temp h5p/core h5p/editor
+# Create directories for H5P data (will be mounted as volumes)
+RUN mkdir -p /data/h5p/content /data/h5p/libraries /data/h5p/temp /data/h5p/core /data/h5p/editor
 
+# Environment variables with sensible defaults
+ENV NODE_ENV=production
+ENV PORT=3000
+ENV H5P_BASE_URL=http://localhost:3000
+ENV DJANGO_URL=http://host.docker.internal:8000
+ENV H5P_DATA_PATH=/data/h5p
+
+# Expose the server port
 EXPOSE 3000
 
-CMD ["npm", "start"]
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD wget --no-verbose --tries=1 --spider http://localhost:3000/health || exit 1
+
+# Run as non-root user for security
+RUN addgroup -g 1001 -S h5p && adduser -u 1001 -S h5p -G h5p
+RUN chown -R h5p:h5p /app /data
+USER h5p
+
+CMD ["node", "src/index.js"]

@@ -23,9 +23,12 @@ const __dirname = path.dirname(__filename);
 const app = express();
 
 // Configuration from environment
-const PORT = process.env.H5P_PORT || 3000;
+const PORT = process.env.PORT || process.env.H5P_PORT || 3000;
 const DJANGO_URL = process.env.DJANGO_URL || 'http://localhost:8000';
 const H5P_BASE_URL = process.env.H5P_BASE_URL || `http://localhost:${PORT}`;
+
+// Storage paths (configurable for Docker deployment)
+const H5P_DATA_PATH = process.env.H5P_DATA_PATH || path.resolve(__dirname, '../h5p');
 
 // Middleware
 app.use(cors({
@@ -54,7 +57,7 @@ app.use((req, res, next) => {
 });
 
 // Paths for H5P storage (defined early for static file serving)
-const h5pBasePath = path.resolve(__dirname, '../h5p');
+const h5pBasePath = H5P_DATA_PATH;
 
 // Serve H5P core and editor static files BEFORE other routes
 app.use('/h5p/core', express.static(path.join(h5pBasePath, 'core')));

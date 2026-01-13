@@ -1,0 +1,31 @@
+# Licensing
+
+This project contains two distinct components with different licenses:
+
+## H5P Server (`h5p-server/`)
+
+**License: GPL-3.0-or-later**
+
+The H5P server component uses [@lumieducation/h5p-server](https://github.com/Lumieducation/H5P-Nodejs-library) 
+which is licensed under GPL-3.0. As a derivative work, the H5P server code in this repository 
+is also licensed under GPL-3.0-or-later.
+
+See `h5p-server/LICENSE` for the full GPL-3.0 license text.
+
+## Django Plugin (`django_h5p/`)
+
+**License: MIT**
+
+The Django integration plugin communicates with the H5P server via HTTP API and does not 
+incorporate any GPL-licensed code. It is licensed under the MIT License.
+
+See `django_h5p/LICENSE` for the full MIT license text.
+
+---
+
+This dual-license structure allows you to:
+- Use the H5P server as a Docker container (GPL-3.0 applies to the server code)
+- Integrate the Django plugin into your proprietary Django project (MIT allows this)
+
+The HTTP API boundary between the two components means they are "aggregated" rather than 
+"combined" under GPL terms, allowing this licensing arrangement.

@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>{% if content %}Edit{% else %}Create{% endif %} H5P Content</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 20px; }
+        .btn { padding: 10px 20px; font-size: 16px; cursor: pointer; border: none; border-radius: 4px; }
+        .btn-primary { background: #007bff; color: white; }
+        .btn-secondary { background: #6c757d; color: white; }
+        #status { margin-top: 20px; padding: 15px; border-radius: 4px; display: none; }
+    </style>
+</head>
+<body>
+    <h2>{% if content %}Edit: {{ content.title }}{% else %}Create New H5P Content{% endif %}</h2>
+    
+    <button id="open-editor-btn" class="btn btn-primary">Open H5P Editor</button>
+    
+    <div id="status"></div>
+    
+    <script>
+        const editorUrl = "{{ editor_url|safe }}";
+        let editorWindow = null;
+        
+        document.getElementById('open-editor-btn').addEventListener('click', function() {
+            const width = 1200, height = 800;
+            const left = (screen.width - width) / 2;
+            const top = (screen.height - height) / 2;
+            
+            editorWindow = window.open(
+                editorUrl, 'h5p-editor',
+                `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes`
+            );
+            
+            if (editorWindow) {
+                document.getElementById('status').style.display = 'block';
+                document.getElementById('status').innerHTML = 'Editor opened. Save your changes when done.';
+                document.getElementById('status').style.background = '#e7f3ff';
+                
+                const checkPopup = setInterval(function() {
+                    if (editorWindow.closed) {
+                        clearInterval(checkPopup);
+                        location.reload();
+                    }
+                }, 500);
+            } else {
+                alert('Popup blocked! Please allow popups for this site.');
+            }
+        });
+    </script>
+</body>
+</html>
