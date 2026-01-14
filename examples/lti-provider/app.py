@@ -27,8 +27,10 @@ from pylti1p3.tool_config import ToolConfJsonFile
 from pylti1p3.grade import Grade
 from pylti1p3.lineitem import LineItem
 from werkzeug.exceptions import Forbidden
+from flask_cors import CORS
 
 app = Flask(__name__)
+CORS(app, resources={r"/lti/webhook": {"origins": "*"}})
 app.secret_key = os.environ.get('SECRET_KEY', 'change-this-in-production-use-random-key')
 
 # Configure session cookies for cross-site LTI requests

@@ -1,11 +1,12 @@
 /**
- * Modern H5P Server using @lumieducation/h5p-server
+ * Universal H5P Server using @lumieducation/h5p-server
  *
  * Provides:
  * - H5P content player (view/play content)
  * - H5P content editor (create/edit content)
  * - Content management API
- * - Score/completion webhooks to Django
+ * - xAPI events via postMessage (for iframe embedding)
+ * - Optional webhook for xAPI events (pass ?webhookUrl=...)
  */
 
 import express from 'express';
@@ -24,29 +25,18 @@ const app = express();
 
 // Configuration from environment
 const PORT = process.env.PORT || process.env.H5P_PORT || 3000;
-const DJANGO_URL = process.env.DJANGO_URL || 'http://localhost:8000';
 const H5P_BASE_URL = process.env.H5P_BASE_URL || `http://localhost:${PORT}`;
 
 // Storage paths (configurable for Docker deployment)
 const H5P_DATA_PATH = process.env.H5P_DATA_PATH || path.resolve(__dirname, '../h5p');
 
 // CORS middleware - allow all origins for development
-app.use((req, res, next) => {
-    const origin = req.headers.origin;
-    if (origin) {
-        res.setHeader('Access-Control-Allow-Origin', origin);
-    } else {
-        res.setHeader('Access-Control-Allow-Origin', '*');
-    }
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
-
-    if (req.method === 'OPTIONS') {
-        return res.sendStatus(204);
-    }
-    next();
-});
+app.use(cors({
+    origin: true,  // Reflect the request origin
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+}));
 
 // Apply bodyParser conditionally
 // Skip bodyParser ONLY for multipart/form-data requests (file uploads)
@@ -350,6 +340,8 @@ app.get('/play/:contentId', async (req, res) => {
     try {
         const user = createUser(req);
         const contentId = req.params.contentId;
+        // Optional webhook URL for xAPI events (if not provided, only postMessage is used)
+        const webhookUrl = req.query.webhookUrl || '';
 
         // h5pPlayer.render() returns complete HTML with the default renderer
         let playerHtml = await h5pPlayer.render(
@@ -386,7 +378,8 @@ app.get('/play/:contentId', async (req, res) => {
             });
         }
 
-        // Track xAPI events and send to Django
+        // Track xAPI events
+        const webhookUrl = '${webhookUrl}';
         H5P.externalDispatcher.on('xAPI', function(event) {
             const statement = event.data.statement;
 
@@ -397,22 +390,25 @@ app.get('/play/:contentId', async (req, res) => {
                 statement.verb.id.includes('passed') ||
                 statement.verb.id.includes('failed')
             )) {
-                // Send to Django webhook
-                fetch('${DJANGO_URL}/h5p/results/', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        contentId: '${contentId}',
-                        userId: '${user.id}',
-                        statement: statement
-                    })
-                }).catch(err => console.error('Failed to send results:', err));
+                // Send to webhook if URL provided
+                if (webhookUrl) {
+                    fetch(webhookUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            contentId: '${contentId}',
+                            userId: '${user.id}',
+                            statement: statement
+                        })
+                    }).catch(err => console.error('Failed to send results:', err));
+                }
 
-                // Also post to parent window if in iframe
+                // Always post to parent window if in iframe
                 if (window.parent !== window) {
                     window.parent.postMessage({
                         type: 'h5p-result',
                         contentId: '${contentId}',
+                        userId: '${user.id}',
                         statement: statement
                     }, '*');
                 }

@@ -1,7 +1,7 @@
-# Docker Compose for H5P LTI Provider
-# 
-# This sets up the H5P server for integration with Django.
-# The Django app itself is typically run separately (development server or your own container).
+# Docker Compose for Universal H5P Server
+#
+# This sets up the H5P server for integration with any backend.
+# Pass H5P_BASE_URL to set the public URL for asset loading.
 
 services:
   h5p-server:
@@ -12,8 +12,7 @@ services:
       - "3000:3000"
     environment:
       - PORT=3000
-      - H5P_BASE_URL=http://localhost:3000
-      - DJANGO_URL=http://host.docker.internal:8000
+      - H5P_BASE_URL=${H5P_BASE_URL:-http://localhost:3000}
       - H5P_DATA_PATH=/data/h5p
     volumes:
       # For development: mount local h5p directory
