@@ -172,7 +172,7 @@ app.MapGet("/play/{h5pId}", (string h5pId, string? user) =>
         <body>
             <a href="/" class="back">&larr; Back to Library</a>
             <h1>H5P Player</h1>
-            <iframe src="{{H5P_SERVER}}/play/{{h5pId}}?userId={{userId}}"></iframe>
+            <iframe src="{{H5P_SERVER}}/play/{{h5pId}}?userId={{userId}}&webhookUrl={{APP_URL}}/webhook"></iframe>
         </body>
         </html>
         """, "text/html");

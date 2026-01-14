@@ -202,7 +202,7 @@ def play(h5p_id):
     <body>
         <a href="/" class="back">&larr; Back to Library</a>
         <h1>H5P Player</h1>
-        <iframe src="{H5P_SERVER}/play/{h5p_id}?userId={user_id}"></iframe>
+        <iframe src="{H5P_SERVER}/play/{h5p_id}?userId={user_id}&webhookUrl={APP_URL}/webhook"></iframe>
     </body>
     </html>
     '''

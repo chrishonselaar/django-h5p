@@ -222,7 +222,7 @@ function showPlayer(string $h5pId): void {
 <body>
     <a href="?" class="back">&larr; Back to Library</a>
     <h1>H5P Player</h1>
-    <iframe src="{$h5pServer}/play/{$h5pId}?userId={$userId}"></iframe>
+    <iframe src="{$h5pServer}/play/{$h5pId}?userId={$userId}&webhookUrl={$appUrl}/webhook"></iframe>
 </body>
 </html>
 HTML;

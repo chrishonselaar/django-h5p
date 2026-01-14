@@ -209,7 +209,7 @@ async def play(h5p_id: str, user: str = "demo-user"):
     <body>
         <a href="/" class="back">&larr; Back to Library</a>
         <h1>H5P Player</h1>
-        <iframe src="{H5P_SERVER}/play/{h5p_id}?userId={user}"></iframe>
+        <iframe src="{H5P_SERVER}/play/{h5p_id}?userId={user}&webhookUrl={APP_URL}/webhook"></iframe>
     </body>
     </html>
     '''
