@@ -66,16 +66,31 @@ cd h5p-server && npm start
 cd examples/lti-provider && python app.py
 ```
 
-### Step 2: Expose Your Local Server (Required)
+### Step 2: Expose Your Local Servers (Required)
 
-Saltire needs to reach your local server. Use Cloudflare Tunnel (recommended) or similar:
+Saltire needs to reach your local servers. You need **two tunnels** - one for the LTI provider and one for the H5P server:
 
 ```bash
 # Install cloudflared: https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/
+
+# Terminal 3: Tunnel for LTI Provider
 cloudflared tunnel --url http://localhost:5001
+# Copy this URL for Saltire config (e.g., https://abc-random.trycloudflare.com)
+
+# Terminal 4: Tunnel for H5P Server
+cloudflared tunnel --url http://localhost:3000
+# Copy this URL for H5P_BASE_URL (e.g., https://xyz-random.trycloudflare.com)
 ```
 
-Copy the HTTPS URL (e.g., `https://something-random.trycloudflare.com`)
+Then restart the servers with the tunnel URLs:
+
+```bash
+# H5P Server (use Docker or native)
+H5P_BASE_URL=https://xyz-random.trycloudflare.com docker compose up -d h5p-server
+
+# LTI Provider
+H5P_SERVER=https://xyz-random.trycloudflare.com APP_URL=https://abc-random.trycloudflare.com python app.py
+```
 
 > **Note**: Avoid ngrok free tier - its interstitial warning page breaks iframes and LTI launches.
 

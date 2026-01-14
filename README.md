@@ -91,11 +91,13 @@ All examples follow the same simple pattern:
 ### Content Playback
 
 ```
-1. Your app embeds iframe: H5P_SERVER/play/{contentId}?userId={userId}
+1. Your app embeds iframe: H5P_SERVER/play/{contentId}?userId={userId}&webhookUrl={yourWebhook}
 2. User interacts with H5P content
-3. H5P server sends score to your webhook endpoint
+3. H5P server sends xAPI score to your webhook (if provided) + postMessage to parent
 4. Your app stores the grade
 ```
+
+> **Note**: The `webhookUrl` parameter is optional. If not provided, xAPI events are only sent via `postMessage` to the parent window (useful for iframe embedding).
 
 ### Webhook Payload
 
@@ -212,6 +214,9 @@ docker compose up -d h5p-server
 # Check it's running
 curl http://localhost:3000/health
 # Should return: {"status":"ok","service":"h5p-server"}
+
+# For external access (e.g., LTI), set the public URL:
+H5P_BASE_URL=https://your-public-url.com docker compose up -d h5p-server
 ```
 
 **Volume Configuration:**
