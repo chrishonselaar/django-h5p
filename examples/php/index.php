@@ -204,6 +204,8 @@ HTML;
 function showPlayer(string $h5pId): void {
     $userId = $_GET['user'] ?? 'demo-user';
     $h5pServer = H5P_SERVER;
+    $appUrl = APP_URL;
+    $webhookUrl = urlencode($appUrl . '?action=webhook');
     $h5pId = htmlspecialchars($h5pId);
     $userId = htmlspecialchars($userId);
 
@@ -222,7 +224,7 @@ function showPlayer(string $h5pId): void {
 <body>
     <a href="?" class="back">&larr; Back to Library</a>
     <h1>H5P Player</h1>
-    <iframe src="{$h5pServer}/play/{$h5pId}?userId={$userId}&webhookUrl={$appUrl}/webhook"></iframe>
+    <iframe src="{$h5pServer}/play/{$h5pId}?userId={$userId}&webhookUrl={$webhookUrl}"></iframe>
 </body>
 </html>
 HTML;
@@ -289,7 +291,17 @@ HTML;
 }
 
 function handleWebhook(): void {
+    // CORS headers for cross-origin xAPI requests from H5P
+    header('Access-Control-Allow-Origin: *');
+    header('Access-Control-Allow-Methods: POST, OPTIONS');
+    header('Access-Control-Allow-Headers: Content-Type');
     header('Content-Type: application/json');
+
+    // Handle preflight
+    if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+        http_response_code(204);
+        return;
+    }
 
     // Only accept POST
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') {

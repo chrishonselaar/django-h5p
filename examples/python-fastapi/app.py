@@ -20,6 +20,7 @@ from typing import Optional
 from pydantic import BaseModel
 from fastapi import FastAPI, Request, Query
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 
 # Configuration
 H5P_SERVER = 'http://localhost:3000'
@@ -95,6 +96,14 @@ async def lifespan(app: FastAPI):
     yield
 
 app = FastAPI(title="H5P Integration - FastAPI Example", lifespan=lifespan)
+
+# Enable CORS for webhook endpoint (H5P server sends xAPI scores cross-origin)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["POST"],
+    allow_headers=["*"],
+)
 
 # ============================================================================
 # Routes

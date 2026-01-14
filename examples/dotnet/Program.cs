@@ -274,11 +274,12 @@ app.MapPost("/webhook", async (HttpRequest request) =>
     using var conn = new SqliteConnection($"Data Source={DATABASE}");
     conn.Open();
 
-    int? contentDbId = null;
+    long? contentDbId = null;
     using (var cmd = new SqliteCommand("SELECT id FROM h5p_content WHERE h5p_id = @id", conn))
     {
         cmd.Parameters.AddWithValue("@id", data.ContentId);
-        contentDbId = cmd.ExecuteScalar() as int?;
+        var result = cmd.ExecuteScalar();
+        contentDbId = result != null ? Convert.ToInt64(result) : null;
     }
 
     if (contentDbId == null)

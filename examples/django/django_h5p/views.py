@@ -89,20 +89,18 @@ def h5p_results_webhook(request):
     verb_id = statement.get('verb', {}).get('id', '')
     verb = verb_id.split('/')[-1] if '/' in verb_id else verb_id
 
-    # Store or update grade
+    # Store grade (create new record for each attempt)
     if score is not None:
-        H5PGrade.objects.update_or_create(
+        H5PGrade.objects.create(
             content=content,
             user_id=user_id,
-            defaults={
-                'score': min(score, Decimal('1.0')),
-                'raw_score': Decimal(str(raw_score)) if raw_score else None,
-                'max_score': Decimal(str(max_score)) if max_score else None,
-                'completed': completion,
-                'success': success,
-                'xapi_verb': verb,
-                'xapi_statement': statement,
-            }
+            score=min(score, Decimal('1.0')),
+            raw_score=Decimal(str(raw_score)) if raw_score else None,
+            max_score=Decimal(str(max_score)) if max_score else None,
+            completed=completion,
+            success=success,
+            xapi_verb=verb,
+            xapi_statement=statement,
         )
 
         return _add_cors_headers(JsonResponse({
@@ -132,8 +130,10 @@ def h5p_player(request, content_id):
             request.session['h5p_user_id'] = f"anon-{uuid.uuid4().hex[:8]}"
         user_id = request.session['h5p_user_id']
     
+    from urllib.parse import quote
     h5p_server_url = getattr(settings, 'H5P_SERVER_URL', 'http://localhost:3000')
-    player_url = f"{h5p_server_url}/play/{content.h5p_content_id}?userId={user_id}"
+    webhook_url = quote(request.build_absolute_uri('/h5p/results/'), safe='')
+    player_url = f"{h5p_server_url}/play/{content.h5p_content_id}?userId={user_id}&webhookUrl={webhook_url}"
     
     return render(request, 'django_h5p/player.html', {
         'content': content,

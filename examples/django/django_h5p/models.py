@@ -159,7 +159,6 @@ class H5PGrade(models.Model):
         verbose_name = 'H5P Grade'
         verbose_name_plural = 'H5P Grades'
         ordering = ['-updated_at']
-        unique_together = ['content', 'user_id']
     
     def __str__(self):
         return f"{self.user_id}: {self.score:.0%} on {self.content}"
@@ -168,3 +167,8 @@ class H5PGrade(models.Model):
     def score_percent(self):
         """Return score as percentage (0-100)."""
         return float(self.score * 100)
+
+    @property
+    def score_percentage(self):
+        """Return score as formatted percentage string."""
+        return f"{float(self.score * 100):.0f}%"

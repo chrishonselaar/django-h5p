@@ -18,10 +18,12 @@ import sqlite3
 import json
 from datetime import datetime
 from flask import Flask, request, redirect, url_for, jsonify, g
+from flask_cors import CORS
 from urllib.parse import urlencode
 
 app = Flask(__name__)
 app.secret_key = 'change-this-in-production'
+CORS(app, resources={r"/webhook": {"origins": "*"}})
 
 # Configuration
 H5P_SERVER = 'http://localhost:3000'

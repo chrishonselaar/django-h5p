@@ -167,10 +167,15 @@ def activity_launch(request, activity_id):
             'activity': activity,
         })
 
+    # Build webhook URL for receiving xAPI results
+    from urllib.parse import quote
+    webhook_url = quote(request.build_absolute_uri('/h5p/results/'), safe='')
+
     return render(request, 'sample_lms/activity_launch.html', {
         'activity': activity,
         'h5p_server_url': settings.H5P_SERVER_URL,
         'user_id': get_user_id(request),
+        'webhook_url': webhook_url,
     })
 
 
