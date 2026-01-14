@@ -147,7 +147,31 @@ The [LTI provider](examples/lti-provider/) allows external LMS platforms to:
 - Return grades to LMS gradebook
 - Works with Moodle, Canvas, Blackboard, etc.
 
-## H5P Server API
+## H5P Server
+
+### What It Adds
+
+The `@lumieducation/h5p-server` npm package provides H5P's core functionality, and `@lumieducation/h5p-express` provides AJAX endpoints for the H5P client-side JavaScript. However, as [the docs note](https://docs.lumi.education/usage/ajax-endpoints):
+
+> **The Express adapter does not include pages to create, edit, view, list or delete content!**
+
+Our h5p-server wraps these libraries into a **ready-to-use service** with user-facing routes:
+
+| Base Library Provides | Our Server Adds |
+|-----------------------|-----------------|
+| `/ajax` - AJAX calls for H5P client JS | `/new` - Editor page for new content |
+| `/content` - Serve content files | `/edit/:id` - Editor page for existing content |
+| `/libraries` - Serve library files | `/play/:id` - Player page with xAPI tracking |
+| `/temp-files` - Temporary uploads | `/api/content` - List/delete content REST API |
+| `/params` - Content parameters | `returnUrl` - Callback after save with contentId |
+| `/download` - H5P package export | `webhookUrl` - POST xAPI scores to your app |
+| | `postMessage` - xAPI events to parent window |
+| | Cross-origin iframe fixes |
+| | Docker image with health checks |
+
+The base library is the **engine**. Our server adds the **user-facing routes and integration glue**.
+
+### API Endpoints
 
 The Node.js H5P server exposes these endpoints:
 
