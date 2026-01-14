@@ -12,9 +12,9 @@ A comprehensive collection of examples for integrating H5P interactive content i
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                    Your Application                      │
+│                    Your Application                     │
 │    (Flask, FastAPI, PHP, .NET, Django, or any stack)    │
-│                                                          │
+│                                                         │
 │  1. Create content → iframe to H5P /new                 │
 │  2. Play content   → iframe to H5P /play/{id}           │
 │  3. Receive scores → webhook from H5P server            │
@@ -22,8 +22,8 @@ A comprehensive collection of examples for integrating H5P interactive content i
                            │ HTTP API
                            ▼
 ┌─────────────────────────────────────────────────────────┐
-│                    H5P Server (Node.js)                  │
-│                                                          │
+│                    H5P Server (Node.js)                 │
+│                                                         │
 │  - Creates and edits H5P content                        │
 │  - Renders H5P player                                   │
 │  - Sends xAPI scores via webhook                        │
